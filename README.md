@@ -2,14 +2,13 @@
 
 This repository is a supplementary material of the following paper:
 
-*Kuangdai Leng, and Jeyan Thiyagalingam. On the compatibility between a neural network and a partial differential equation for physics-informed learning. arXiv preprint [arXiv:????.?????](????), 2022.*
+Kuangdai Leng, and Jeyan Thiyagalingam. On the compatibility between a neural network and a partial differential equation for physics-informed learning. arXiv preprint [arXiv:2212.00270](https://arxiv.org/abs/2212.00270), 2022.
 
-BibTeX:
 ```BibTeX
 @article{leng2022on,
   title={On the compatibility between a neural network and a partial differential equation for physics-informed learning},
   author={Leng, Kuangdai and Thiyagalingam, Jeyan},
-  journal={arXiv preprint arXiv:????.?????},
+  journal={arXiv preprint arXiv:2212.00270},
   year={2022}
 }
 ```
