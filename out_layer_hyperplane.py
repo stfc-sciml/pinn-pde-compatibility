@@ -8,7 +8,7 @@ import torch.nn as nn
 
 def f_func(x):
     """ source term """
-    return torch.sin(x[0] + x[1] - x[2])
+    return torch.sin(x[:, 0] + x[:, 1] - x[:, 2])
 
 
 def activation_func(z, derivatives=False):
@@ -55,24 +55,21 @@ class Net(nn.Module):
 
     def forward(self, x):
         # handle batch dim
-        batch_dim_added = False
-        if x.ndim == 1:
-            x = torch.unsqueeze(x, dim=0)
-            batch_dim_added = True
+        assert x.ndim == 2
         batch_size = x.size(0)
 
         # STEP 1 in Algorithm 1
         # Note: before propagation, make a copy of x0 requiring no gradient
         #       because we have considered its contribution to J and H
         #       analytically via U and V
-        L = len(self.fc) + 1
         x_no_grad = x.clone().detach()
+        L = len(self.fc) + 1
         for k in range(L - 1):
             # with gradient to W, with gradient to x0
             x = activation_func(self.fc[k](x))
 
         # compute f before x_no_grad is processed by layers
-        f = f_func(x_no_grad[0])
+        f = f_func(x_no_grad)
 
         # STEP 2 in Algorithm 1 (F, s)
         F = []
@@ -124,7 +121,7 @@ class Net(nn.Module):
         psi = V[:, :, 0, 0] + V[:, :, 1, 1] - V[:, :, 2, 2] - U[:, :, 2]
         G = torch.stack(
             [torch.eye(self.n_last_hidden, device=x.device)] * batch_size)
-        G[:, 0, 0] = f / psi[:, 0]
+        G[:, 0, 0] = f[:] / psi[:, 0]
         G[:, 1:, 0] = -psi[:, 1:] / psi[:, 0, None]
 
         # STEP 6 in Algorithm 1 (w)
@@ -135,10 +132,6 @@ class Net(nn.Module):
 
         # STEP 7 in Algorithm 1 (u)
         u_out = torch.einsum('bi,bi->b', w, x)
-
-        # handle batch
-        if batch_dim_added:
-            u_out = u_out.squeeze(dim=0)
         return u_out
 
 
@@ -148,29 +141,43 @@ if __name__ == "__main__":
     n_in = 3
     model = Net(n_input=n_in, n_last_hidden=4)
     # input
-    x0 = torch.rand(n_in, requires_grad=True)
+    n_batch = 4
+    x0 = torch.rand((n_batch, n_in), requires_grad=True)
     # u, Jacobian, Hessian, f
     u = model.forward(x0)
-    J = torch.autograd.functional.jacobian(model.forward, x0)
-    H = torch.autograd.functional.hessian(model.forward, x0)
+    Js = []
+    Hs = []
+    for i_batch in range(n_batch):
+        J = torch.autograd.functional.jacobian(
+            model.forward, x0[i_batch].unsqueeze(0))[0][0]
+        H = torch.autograd.functional.hessian(
+            model.forward, x0[i_batch].unsqueeze(0))[0, :, 0, :]
+        Js.append(J)
+        Hs.append(H)
     fx0 = f_func(x0)
+
     # report results
-    print(f'**** INPUT ****')
-    print(f'x0 = {x0.detach().numpy()}')
-    print(f'\n**** OUTPUT ****')
-    print(f'u = {u.item()}')
-    print(f'Jacobian = {J.detach().numpy()}')
-    print(f'Hessian =\n{H.detach().numpy()}')
-    print(f'\n**** PDE ****')
-    print('Equation: u_xx + u_yy - u_tt - u_t - f = 0')
-    print(f'MLP approximated values:')
-    print(f'    u_xx = H[0, 0] = {H[0, 0]}')
-    print(f'    u_yy = H[1, 1] = {H[1, 1]}')
-    print(f'    u_tt = H[2, 2] = {H[2, 2]}')
-    print(f'    u_t = J[2] = {J[2]}')
-    print(f'    f = {fx0}')
-    print(f'    u_xx + u_yy - u_tt - u_t - f = '
-          f'{H[0, 0] + H[1, 1] - H[2, 2] - J[2] - fx0}')
-    print(f'\n**** CONCLUSION ****')
+    for i_batch in range(n_batch):
+        print(f'============ DATA POINT {i_batch} ============')
+        print(f'**** INPUT ****')
+        print(f'x0 = {x0[i_batch].detach().numpy()}')
+        print(f'**** OUTPUT ****')
+        print(f'u = {u[i_batch].item()}')
+        J = Js[i_batch]
+        H = Hs[i_batch]
+        print(f'Jacobian = {J.detach().numpy()}')
+        print(f'Hessian =\n{H.detach().numpy()}')
+        print(f'**** PDE ****')
+        print('Equation: u_xx + u_yy - u_tt - u_t - f = 0')
+        print(f'MLP approximated values:')
+        print(f'    u_xx = H[0, 0] = {H[0, 0]}')
+        print(f'    u_yy = H[1, 1] = {H[1, 1]}')
+        print(f'    u_tt = H[2, 2] = {H[2, 2]}')
+        print(f'    u_t = J[2] = {J[2]}')
+        print(f'    f = {fx0[i_batch]}')
+        print(f'    u_xx + u_yy - u_tt - u_t - f = '
+              f'{H[0, 0] + H[1, 1] - H[2, 2] - J[2] - fx0[i_batch]}')
+        print('\n')
+    print(f'============ CONCLUSION ============')
     print('An MLP equipped with the out-layer-hyperplane can "'
-          '"enforce the PDE to hold.')
+          'enforce" the PDE to hold.')
