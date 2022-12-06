@@ -127,7 +127,7 @@ class Net(nn.Module):
         # STEP 6 in Algorithm 1 (w)
         w = G[:, 0, :]
         lmbda = self.lmbda.state_dict()['weight'][0]
-        for p in range(2, self.n_last_hidden):
+        for p in range(1, self.n_last_hidden):
             w += lmbda[p - 1] * G[:, p, :]
 
         # STEP 7 in Algorithm 1 (u)
