@@ -125,7 +125,7 @@ class Net(nn.Module):
         G[:, 1:, 0] = -psi[:, 1:] / psi[:, 0, None]
 
         # STEP 6 in Algorithm 1 (w)
-        w = G[:, 0, :]
+        w = G[:, 0, :].clone()
         lmbda = self.lmbda.state_dict()['weight'][0]
         for p in range(1, self.n_last_hidden):
             w += lmbda[p - 1] * G[:, p, :]
