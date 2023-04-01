@@ -51,7 +51,7 @@ class Net(nn.Module):
         # Note: this is implemented as a linear layer so that PyTorch can
         #       handle many things for us, such as backprop, device transfer,
         #       initialization and model saving.
-        self.lmbda = nn.Linear(n_last_hidden - 1, 1, bias=False)
+        self.lmbda = nn.Linear(n_last_hidden - 1, 1)
 
     def forward(self, x):
         # handle batch dim
@@ -61,7 +61,9 @@ class Net(nn.Module):
         # STEP 1 in Algorithm 1
         # Note: before propagation, make a copy of x0 requiring no gradient
         #       because we have considered its contribution to J and H
-        #       analytically via U and V
+        #       analytically via U and V;
+        #       this is not required for applications because we don't need
+        #       to verify the Jacobian and Hessian with autograd
         x_no_grad = x.clone().detach()
         L = len(self.fc) + 1
         for k in range(L - 1):
@@ -80,14 +82,9 @@ class Net(nn.Module):
             z = self.fc[k](x_no_grad)
             x_no_grad, d_sigma, dd_sigma = activation_func(z,
                                                            derivatives=True)
-            # TODO: don't know how to use diag() excluding the batch dim,
-            #       so using a loop
-            F_k = []
-            for i in range(batch_size):
-                F_k.append(torch.diag(d_sigma[i]))
-            F.append(torch.stack(F_k))
+            F.append(torch.diag_embed(d_sigma))
             s.append(dd_sigma)
-            W.append(self.fc[k].state_dict()['weight'])
+            W.append(self.fc[k].weight)
 
         # STEP 3 in Algorithm 1 (P, Q)
         P = []
@@ -120,18 +117,19 @@ class Net(nn.Module):
         # H[0, 0] + H[1, 1] - H[2, 2] - J[2]
         psi = V[:, :, 0, 0] + V[:, :, 1, 1] - V[:, :, 2, 2] - U[:, :, 2]
         G = torch.stack(
-            [torch.eye(self.n_last_hidden, device=x.device)] * batch_size)
-        G[:, 0, 0] = f[:] / psi[:, 0]
-        G[:, 1:, 0] = -psi[:, 1:] / psi[:, 0, None]
+            [torch.eye(self.n_last_hidden, device=x.device)] *
+            batch_size) * psi[:, 0, None, None]
+        G[:, 1:, 0] = -psi[:, 1:]
+        psi_square_sum = (psi[:, :] ** 2).sum(dim=1)
+        G[:, 0, :] = f[:, None] * psi[:, :] / psi_square_sum[:, None]
 
         # STEP 6 in Algorithm 1 (w)
         w = G[:, 0, :].clone()
-        lmbda = self.lmbda.state_dict()['weight'][0]
-        for p in range(1, self.n_last_hidden):
-            w += lmbda[p - 1] * G[:, p, :]
+        w += (self.lmbda.weight[0][None, :, None]
+              * G[:, 1:, :]).sum(dim=1)
 
         # STEP 7 in Algorithm 1 (u)
-        u_out = torch.einsum('bi,bi->b', w, x)
+        u_out = torch.einsum('bi,bi->b', w, x) + self.lmbda.bias[0]
         return u_out
 
 
