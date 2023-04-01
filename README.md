@@ -2,11 +2,11 @@
 
 This repository is a supplementary material of the following paper:
 
-Kuangdai Leng, and Jeyan Thiyagalingam. On the compatibility between a neural network and a partial differential equation for physics-informed learning. arXiv preprint [arXiv:2212.00270](https://arxiv.org/abs/2212.00270), 2022.
+Kuangdai Leng, and Jeyan Thiyagalingam. On the compatibility between neural networks and partial differential equations for physics-informed learning. arXiv preprint [arXiv:2212.00270](https://arxiv.org/abs/2212.00270), 2022.
 
 ```BibTeX
 @article{leng2022on,
-  title={On the compatibility between a neural network and a partial differential equation for physics-informed learning},
+  title={On the compatibility between neural networks and partial differential equations for physics-informed learning},
   author={Leng, Kuangdai and Thiyagalingam, Jeyan},
   journal={arXiv preprint arXiv:2212.00270},
   year={2022}
@@ -17,7 +17,7 @@ Kuangdai Leng, and Jeyan Thiyagalingam. On the compatibility between a neural ne
 [PyTorch](https://pytorch.org/get-started/locally/) is the only dependency. You do NOT need a GPU to run the scripts provided here.
 
 ### The scripts
-Three Python scripts are provided:
+Three standalone Python scripts are provided:
 
 * `relu_causes_zero_hessian.py` verifies that a multilayer
 perceptron (MLP) only with ReLU-like activation functions will always lead to a 
